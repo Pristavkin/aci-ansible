@@ -1,0 +1,19 @@
+---
+- hosts:  localhost
+  connection: local
+  gather_facts: no
+
+  tasks:
+    - name: Query EPG
+      aci_epg:
+        hostname: "{{ apic.hostname }}"
+        username: "{{ apic.username }}"
+        password: "{{ apic.password }}"
+        validate_certs: no
+
+        state: query
+      register: aci_epg
+
+    - name: Query results
+      debug:
+        var: aci_epg

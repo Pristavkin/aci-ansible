@@ -1,0 +1,241 @@
+---
+- hosts:  localhost
+  connection: local
+  gather_facts: no
+
+  tasks:
+    - name: Setup tenant
+      aci_tenant:
+        hostname: "{{ apic.hostname }}"
+        username: "{{ apic.username }}"
+        password: "{{ apic.password }}"
+        validate_certs: no
+
+        tenant: "{{ aci_tenant }}"
+        description: Test tennant
+        state: present
+      register: tenants
+
+    - name: Tenant setup results
+      debug:
+        var: tenants
+
+    - name: Setup VRF
+      aci_vrf:
+        hostname: "{{ apic.hostname }}"
+        username: "{{ apic.username }}"
+        password: "{{ apic.password }}"
+        validate_certs: no
+
+        tenant: "{{ aci_tenant }}"
+        vrf: "{{ item.vrf }}"
+        descr: test vrf
+        state:  present
+      register: vrf
+      with_items:
+        - "{{ vrf_bd_subnet }}"
+
+    - name: VRF setup results
+      debug:
+        var: vrf
+
+    - name: Setup bridge domain
+      aci_bd:
+        hostname: "{{ apic.hostname }}"
+        username: "{{ apic.username }}"
+        password: "{{ apic.password }}"
+        validate_certs: no
+        tenant: "{{ aci_tenant }}"
+        
+        vrf: "{{ item.vrf }}"
+        bd: "{{ item.bd }}"
+        description: test bvi
+        state: present
+      register: bd
+      with_items:
+        - "{{ vrf_bd_subnet }}"
+
+    - name: Bridge domain setup results
+      debug:
+        var: bd
+
+    - name: Setup subnet
+      aci_bd_subnet:
+        hostname: "{{ apic.hostname }}"
+        username: "{{ apic.username }}"
+        password: "{{ apic.password }}"
+        validate_certs: no
+        tenant: "{{ aci_tenant }}"
+        
+        bd: "{{ item.bd }}"
+        gateway: "{{ item.subnet | ansible.netcommon.ipaddr('last_usable') }}"
+        mask:  "{{ item.subnet | ansible.netcommon.ipaddr('prefix') }}"
+        description: test subnet
+        state: present
+      register: bd_subnet
+      with_items:
+        - "{{ vrf_bd_subnet }}"
+
+    - name: Subnet setup results
+      debug:
+        var: bd_subnet
+
+    - name: Setup application profile
+      aci_ap:
+        hostname: "{{ apic.hostname }}"
+        username: "{{ apic.username }}"
+        password: "{{ apic.password }}"
+        validate_certs: no
+        
+        tenant: "{{ aci_tenant }}"
+        ap: "{{ item.ap }}"
+        description: test application profile
+        state: present
+      register: ap
+      with_items:
+        - "{{ ap_epg }}"
+
+    - name: Application profile setup results
+      debug:
+        var: ap
+
+    - name: Setup EPG
+      aci_epg:
+        hostname: "{{ apic.hostname }}"
+        username: "{{ apic.username }}"
+        password: "{{ apic.password }}"
+        validate_certs: no
+        
+        tenant: "{{ aci_tenant }}"
+        ap: "{{ item.ap }}"
+        epg: "{{ item.epg }}"
+        bd: "{{ item.bd }}"
+        description: test EPG
+        state: present
+      register: epg
+      with_items:
+        - "{{ ap_epg }}"
+
+    - name: EPG setup results
+      debug:
+        var: epg
+
+    - name: Setup filters
+      aci_filter:
+        hostname: "{{ apic.hostname }}"
+        username: "{{ apic.username }}"
+        password: "{{ apic.password }}"
+        validate_certs: no
+        
+        tenant: "{{ aci_tenant }}"
+        filter: "{{ item.filter }}"
+        description: test filter
+        state: present
+      register: filter
+      with_items:
+        - "{{ filters }}"
+
+    - name: Filter setup results
+      debug:
+        var: filter
+
+    - name: Setup filter entries
+      aci_filter_entry:
+        hostname: "{{ apic.hostname }}"
+        username: "{{ apic.username }}"
+        password: "{{ apic.password }}"
+        validate_certs: no
+        
+        tenant: "{{ aci_tenant }}"
+        filter: "{{ item.filter }}"
+        entry: "{{ item.entry }}"
+        description: "{{ item.description }}"
+        ether_type: "{{ item.ether_type }}"
+        ip_protocol: "{{ item.ip_protocol }}"
+        dst_port: "{{ item.dst_port }}"
+        state: present
+      register: filter_entry
+      with_items:
+        - "{{ filters }}"
+
+    - name: Filter setup entries results
+      debug:
+        var: filter_entry
+
+    - name: Setup contracts
+      aci_contract:
+        hostname: "{{ apic.hostname }}"
+        username: "{{ apic.username }}"
+        password: "{{ apic.password }}"
+        validate_certs: no
+        
+        tenant: "{{ aci_tenant }}"
+        contract: "{{ item.0.contract.name }}"
+      register: contract
+      with_subelements:
+        - "{{ contracts_list }}"
+        - contract.subjects
+
+    - name: Contract setup results
+      debug:
+        var: contract
+
+    - name: Setup contract subjects
+      aci_contract_subject:
+        hostname: "{{ apic.hostname }}"
+        username: "{{ apic.username }}"
+        password: "{{ apic.password }}"
+        validate_certs: no
+        
+        tenant: "{{ aci_tenant }}"
+        contract: "{{ item.0.contract.name }}"
+        subject: "{{ item.1.subject }}"
+      register: contract_subject
+      with_subelements:
+        - "{{ contracts_list }}"
+        - contract.subjects
+
+    - name: Contract subjects setup results
+      debug:
+        var: contract_subject
+
+    - name: Setup contract subject filters
+      aci_contract_subject_to_filter:
+        hostname: "{{ apic.hostname }}"
+        username: "{{ apic.username }}"
+        password: "{{ apic.password }}"
+        validate_certs: no
+        
+        tenant: "{{ aci_tenant }}"
+        contract: "{{ item.0.contract.name }}"
+        subject: "{{ item.1.subject }}"
+        filter: "{{ item.1.filter }}"
+      register: contract_subject_to_filter
+      with_subelements:
+        - "{{ contracts_list }}"
+        - contract.filters
+
+    - name: Contract subject filters setup results
+      debug:
+        var: contract_subject_to_filter
+
+    - name: Bind EPGs to Contracts
+      aci_epg_to_contract:
+        hostname: "{{ apic.hostname }}"
+        username: "{{ apic.username }}"
+        password: "{{ apic.password }}"
+        validate_certs: no
+        
+        tenant: "{{ aci_tenant }}"
+        contract: "{{ item.0.contract.name }}"
+        epg: "{{ item.1.epg }}"
+        ap: "{{ item.1.ap }}"
+        contract_type: "{{ item.1.contract_type }}"
+      register: aci_epg_to_contract
+      with_subelements:
+        - "{{ contracts_list }}"
+        - contract.EPGs
+
+    - name: Bind EPGs to Contracts results
+      debug:
+        var: aci_epg_to_contract

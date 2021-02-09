@@ -1,0 +1,84 @@
+---
+all:
+  vars:
+    apic:
+      hostname: 10.0.56.132
+      username: admin
+      password: cisco123
+
+    aci_tenant: ansible-test-tenant
+    
+    vrf_bd_subnet:
+      - bd: client
+        subnet: 10.0.1.0/24
+        vrf: ansible-vrf
+      - bd: server
+        subnet: 10.0.2.0/24
+        vrf: ansible-vrf
+
+    ap_epg:
+      - ap: test-app
+        epg: client
+        bd: client
+      - ap: test-app
+        epg: server
+        bd: server
+
+    filters:
+      - filter: management_ssh
+        entry: ssh
+        ether_type: ip
+        ip_protocol: tcp
+        dst_port: ssh 
+        description: ssh
+      - filter: service_www
+        entry: http
+        ether_type: ip
+        ip_protocol: tcp
+        dst_port: 80
+        description: http
+      - filter: service_www
+        entry: https
+        ether_type: ip
+        ip_protocol: tcp
+        dst_port: 443
+        description: https
+      - filter: service_ldap
+        entry: ldap
+        ether_type: ip
+        ip_protocol: tcp
+        dst_port: 389
+        description: ldap
+
+
+    contracts_list:
+      - contract: 
+          name: client_to_server_contract
+          subjects:
+            - subject: client_to_server_subject
+          filters:
+            - subject: client_to_server_subject
+              filter: service_www
+            - subject: client_to_server_subject
+              filter: service_ldap
+          EPGs:
+            - epg: server
+              ap: test-app
+              contract_type: provider
+            - epg: client
+              ap: test-app
+              contract_type: consumer
+      - contract: 
+          name: server_to_client_contract
+          subjects:
+            - subject: server_to_client_subject
+          filters:
+            - subject: server_to_client_subject
+              filter: management_ssh
+          EPGs:
+            - epg: server
+              ap: test-app
+              contract_type: consumer
+            - epg: client
+              ap: test-app
+              contract_type: provider
